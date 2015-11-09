@@ -4,8 +4,14 @@ import sys
 import re
 
 # prepare files
+
+# the files are first opened in write mode
+# to clobber any files with the same name
 reviewfile = open("reviews.txt", "w")
+ptermsfile = open("pterms.txt", "w")
+
 reviewfile = open("reviews.txt", "a")
+ptermsfile = open("pterms.txt", "a")
 
 reviewrow = "1,"
 reviewcount = 1
@@ -29,4 +35,12 @@ for line in sys.stdin:
                 value = '"' + value + '"'
             reviewrow += value + ","
 
+        # process pterms
+        if line.startswith("product/title: "):
+            cleanLine = line.replace("product/title: ", "").lower()
+            pterms = re.findall(r'\w{3,}', cleanLine)
+            for pterm in pterms:
+                ptermsfile.write("%s,%d\n" % (pterm, reviewcount))
+
 reviewfile.close()
+ptermsfile.close()
