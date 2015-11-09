@@ -9,9 +9,11 @@ import re
 # to clobber any files with the same name
 reviewfile = open("reviews.txt", "w")
 ptermsfile = open("pterms.txt", "w")
+rtermsfile = open("rterms.txt", "w")
 
 reviewfile = open("reviews.txt", "a")
 ptermsfile = open("pterms.txt", "a")
+rtermsfile = open("rterms.txt", "a")
 
 reviewrow = "1,"
 reviewcount = 1
@@ -42,5 +44,13 @@ for line in sys.stdin:
             for pterm in pterms:
                 ptermsfile.write("%s,%d\n" % (pterm, reviewcount))
 
+        # process rterms
+        if line.startswith("review/text: ") or line.startswith("review/summary: "):
+            cleanLine = re.sub("review/[a-z]+: ", "", line).lower()
+            rterms = re.findall(r'\w{3,}', cleanLine)
+            for rterm in rterms:
+                rtermsfile.write("%s,%d\n" % (rterm, reviewcount))
+
 reviewfile.close()
 ptermsfile.close()
+rtermsfile.close()
