@@ -10,10 +10,12 @@ import re
 reviewfile = open("reviews.txt", "w")
 ptermsfile = open("pterms.txt", "w")
 rtermsfile = open("rterms.txt", "w")
+scoresfile = open("scores.txt", "w")
 
 reviewfile = open("reviews.txt", "a")
 ptermsfile = open("pterms.txt", "a")
 rtermsfile = open("rterms.txt", "a")
+scoresfile = open("scores.txt", "a")
 
 reviewrow = "1,"
 reviewcount = 1
@@ -51,6 +53,13 @@ for line in sys.stdin:
             for rterm in rterms:
                 rtermsfile.write("%s,%d\n" % (rterm, reviewcount))
 
+        # process scores
+        if line.startswith("review/score: "):
+            score = re.sub("review/[a-z]+: ", "", line).strip()
+            scoresfile.write("%s,%d\n" % (score, reviewcount))
+
+
 reviewfile.close()
 ptermsfile.close()
 rtermsfile.close()
+scoresfile.close()
