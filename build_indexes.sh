@@ -6,5 +6,5 @@
 # create Btree indices for the other files
 fis='pterms.txt rterms.txt scores.txt'
 for f in $fis; do
-    sort -u <$f | ./break.pl | db_load -T -t btree ${f:0:2}.idx
+    sort -u <$f | ./break.pl | db_load -c duplicates=1 -T -t btree ${f:0:2}.idx
 done
