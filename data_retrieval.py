@@ -1,6 +1,20 @@
 from bsddb3 import db
 import re
 
+# load up all four indicies/databases
+reviewsDB = db.DB()
+reviewsDB.open("rw.idx")
+
+ptermsDB = db.DB()
+ptermsDB.open("pt.idx")
+
+rtermsDB = db.DB()
+rtermsDB.open("rt.idx")
+
+scoresDB = db.DB()
+scoresDB.open("sc.idx")
+
+
 class Query():
     """
     Represents a query, including all conditions
@@ -61,8 +75,19 @@ def interface():
         if q == 'q':
             break
         query = Query(q)
+        print(query.pterms)
+        print(query.rterms)
+        print(query.generalterms)
+        print(query.conditions)
         res = processQuery(query)
         print(res)
+
+    # close dbs before exiting
+    reviewsDB.close()            
+    ptermsDB.close()
+    rtermsDB.close()
+    scoresDB.close()            
+
 
 if __name__=='__main__':
     interface()
