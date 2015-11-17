@@ -1,17 +1,17 @@
-from bsddb3 import db
+from bsddb3 import db as berkeleyDB
 import re
 
 # load up all four indicies/databases
-reviewsDB = db.DB()
+reviewsDB = berkeleyDB.DB()
 reviewsDB.open("rw.idx")
 
-ptermsDB = db.DB()
+ptermsDB = berkeleyDB.DB()
 ptermsDB.open("pt.idx")
 
-rtermsDB = db.DB()
+rtermsDB = berkeleyDB.DB()
 rtermsDB.open("rt.idx")
 
-scoresDB = db.DB()
+scoresDB = berkeleyDB.DB()
 scoresDB.open("sc.idx")
 
 
@@ -62,8 +62,64 @@ def processQuery(query):
     by the query object
     """
     # TODO: Get data from db according to query object
+
+    print(query.pterms) # product terms
+    print(processPterms(query.pterms))
+
+    print(query.rterms) # rating ex. great 
+    print(processRterms(query.rterms))
+    
+    print(query.generalterms) # search product title, review summary and review text for term  
+    print(processGeneralTerms(query.generalterms))
+
+    print(query.conditions) # stored as tuples: (property, comparison, value) ex ('rscore', '>', '4')
+    print(processConditions(query.conditions))
+
+    # query results are 'AND'ed together 
+
+    resultIDs = processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions(query.conditions)
+    print(resultIDs)
     return None
 
+def getAllMatchingKeys(masterKey, db):
+    # http://stackoverflow.com/questions/12348346/berkeley-db-partial-match
+    db_cursor = db.cursor()
+    (key,value) = db_cursor.get(bytes(masterKey, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
+    
+    resultsIDs = [value]
+    while(key == bytes(masterKey, encoding="utf-8")):
+        (key,value) = db_cursor.get(bytes(masterKey, encoding="utf-8"), berkeleyDB.DB_NEXT)
+        resultsIDs += [value]
+
+    return resultsIDs
+    
+def processPterms(pterms):
+    # uses ptermsDB
+    resultIDs = []
+    for pterm in pterms:
+        # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
+        # resultIDs += [ptermsDB.get(bytes(pterm, encoding="utf-8"))] # already in encoded in bytes
+        resultIDs += getAllMatchingKeys(pterm, ptermsDB)
+    return resultIDs
+
+def processRterms(rterms):
+    # uses rtermsDB
+    resultIDs = []
+    for rterm in rterms:
+        # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
+        # resultIDs += [rtermsDB.get(bytes(rterm, encoding="utf-8"))] # already in encoded in bytes
+        resultIDs += getAllMatchingKeys(rterm, rtermsDB)
+    return resultIDs
+
+def processGeneralTerms(generalterms):
+    # uses ptermsDB, rtermsDB
+    resultIDs = processRterms(generalterms) + processPterms(generalterms)
+    
+    return resultIDs
+def processConditions(conditions):
+    resultIDs = []
+    return resultIDs
+    pass
 
 
 def interface():
@@ -75,10 +131,6 @@ def interface():
         if q == 'q':
             break
         query = Query(q)
-        print(query.pterms)
-        print(query.rterms)
-        print(query.generalterms)
-        print(query.conditions)
         res = processQuery(query)
         print(res)
 
