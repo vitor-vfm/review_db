@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 from bsddb3 import db as berkeleyDB
 import re
 
@@ -116,10 +118,59 @@ def processGeneralTerms(generalterms):
     resultIDs = processRterms(generalterms) + processPterms(generalterms)
     
     return resultIDs
+
+def rangeSearch(term, maximum, minimum):
+    """
+    Perform range searches
+    """
+    if term == 'rscore':
+        db = scoresDB
+    db_cursor = db.cursor()
+
+    if not maximum:
+        (maxKey,_) = db_cursor.get(berkeleyDB.DB_LAST)
+    else:
+        (maxKey,_) = db_cursor.get(bytes(maximum, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
+
+    if not minimum:
+        (minKey,value) = db_cursor.get(berkeleyDB.DB_FIRST)
+    else:
+        (minKey,value) = db_cursor.get(bytes(minimum, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
+
+    result = []
+    key = minKey
+    while (key <= maxKey):
+        result.append(value)
+        (key,value) = db_cursor.get(berkeleyDB.DB_NEXT)
+    return result
+
+
 def processConditions(conditions):
-    resultIDs = []
-    return resultIDs
-    pass
+    """
+    Process list of conditions
+    """
+    maxes = {}
+    mins = {}
+    for condTuple in conditions:
+        if condTuple[1] == "<":
+            maxes[condTuple[0]] = condTuple[2]
+        elif condTuple[1] == ">":
+            mins[condTuple[0]] = condTuple[2]
+    # get all terms removing duplicates
+    terms = set(list(maxes.keys()) + list(mins.keys()))
+
+    results = []
+    for term in terms:
+        if term in maxes:
+            ma = maxes[term]
+        else:
+            ma = None
+        if term in mins:
+            mi = mins[term]
+        else:
+            mi = None
+        results += rangeSearch(term, ma, mi)
+    return results
 
 
 def interface():
