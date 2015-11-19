@@ -31,9 +31,14 @@ class Query():
         self.pterms = []
         self.rterms = []
         self.generalterms = []
-        # conditions are a list of tuples (term, operator, value)
-        # e.g.: rscore > 4 -> ('rscore','>','4')
-        self.conditions = []
+
+        # These lists represent the maximum and minimum
+        # for the range conditions 
+        # The absence of an upper or lower bound
+        # is represented as None
+        self.rscoreBounds = [None, None]
+        self.rdateBounds = [None, None]
+        self.ppriceBounds = [None, None]
 
         # find pterm specifications
         m = re.findall(r'p:([a-z]+)', q)
@@ -47,16 +52,34 @@ class Query():
             self.rterms += m
         q = re.sub(r'r:[a-z]+', '', q)
 
-        # find conditions
-        m = re.findall(r'([a-z]+) ?([<>]) ?([0-9/]+)', q)
-        if m:
-            self.conditions += m
+        # find bounds
+        self.processBounds(re.findall(r'([a-z]+) ?([<>]) ?([0-9/]+)', q))
         q = re.sub(r'[a-z]+ ?[<>] ?[0-9/]+', '', q)
 
         # find general terms
         m = re.findall(r'[a-z%]+', q)
         if m:
             self.generalterms += m
+
+    def processBounds(self, conditions):
+        """
+        Populate the Bounds tuples
+        """
+        for term, operator, bound in conditions:
+            
+            if term == 'rscore':
+                bounds = self.rscoreBounds
+            elif term == 'rdate':
+                bounds = self.rdateBounds
+            else:
+                bounds = self.ppriceBounds
+
+            if operator == "<":
+                bounds[1] = bound
+            else:
+                bounds[0] = bound
+
+# End of Query class
 
 def processQuery(query):
     """
@@ -65,23 +88,23 @@ def processQuery(query):
     """
     # TODO: Get data from db according to query object
 
-    print(query.pterms) # product terms
-    print(processPterms(query.pterms))
+    print("pterms: ",query.pterms) # product terms
+    print("result: ",processPterms(query.pterms))
 
-    print(query.rterms) # rating ex. great 
-    print(processRterms(query.rterms))
+    print("rterms: ",query.rterms) # rating ex. great 
+    print("result: ",processRterms(query.rterms))
     
-    print(query.generalterms) # search product title, review summary and review text for term  
-    print(processGeneralTerms(query.generalterms))
+    print("general terms: ",query.generalterms) # search product title, review summary and review text for term  
+    print("result: ",processGeneralTerms(query.generalterms))
 
-    print(query.conditions) # stored as tuples: (property, comparison, value) ex ('rscore', '>', '4')
-    print(processConditions(query.conditions))
+    print("rscore bounds: ",query.rscoreBounds)
+    print("rdate bounds: ",query.rdateBounds)
+    print("pprice bounds: ",query.ppriceBounds)
 
     # query results are 'AND'ed together 
 
-    resultIDs = processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions(query.conditions)
-    print(resultIDs)
-    return None
+    resultIDs = processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions()
+    return resultIDs
 
 def getAllMatchingKeys(masterKey, db):
     # http://stackoverflow.com/questions/12348346/berkeley-db-partial-match
@@ -120,6 +143,7 @@ def processGeneralTerms(generalterms):
     return resultIDs
 
 def rangeSearch(term, maximum, minimum):
+    # TODO: either use this function or delete it
     """
     Perform range searches
     """
@@ -145,32 +169,34 @@ def rangeSearch(term, maximum, minimum):
     return result
 
 
-def processConditions(conditions):
+def processConditions():
+    # TODO: either use this function or delete its contents
     """
-    Process list of conditions
+    Process range conditions
     """
-    maxes = {}
-    mins = {}
-    for condTuple in conditions:
-        if condTuple[1] == "<":
-            maxes[condTuple[0]] = condTuple[2]
-        elif condTuple[1] == ">":
-            mins[condTuple[0]] = condTuple[2]
-    # get all terms removing duplicates
-    terms = set(list(maxes.keys()) + list(mins.keys()))
+    return []
+    # maxes = {}
+    # mins = {}
+    # for condTuple in conditions:
+    #     if condTuple[1] == "<":
+    #         maxes[condTuple[0]] = condTuple[2]
+    #     elif condTuple[1] == ">":
+    #         mins[condTuple[0]] = condTuple[2]
+    # # get all terms removing duplicates
+    # terms = set(list(maxes.keys()) + list(mins.keys()))
 
-    results = []
-    for term in terms:
-        if term in maxes:
-            ma = maxes[term]
-        else:
-            ma = None
-        if term in mins:
-            mi = mins[term]
-        else:
-            mi = None
-        results += rangeSearch(term, ma, mi)
-    return results
+    # results = []
+    # for term in terms:
+    #     if term in maxes:
+    #         ma = maxes[term]
+    #     else:
+    #         ma = None
+    #     if term in mins:
+    #         mi = mins[term]
+    #     else:
+    #         mi = None
+    #     results += rangeSearch(term, ma, mi)
+    # return results
 
 
 def interface():
@@ -181,9 +207,7 @@ def interface():
         q = input("Please input your query. Input 'q' to exit: ").lower()
         if q == 'q':
             break
-        query = Query(q)
-        res = processQuery(query)
-        print(res)
+        print(processQuery(Query(q)))
 
     # close dbs before exiting
     reviewsDB.close()            
