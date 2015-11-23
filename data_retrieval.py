@@ -2,6 +2,8 @@
 
 from bsddb3 import db as berkeleyDB
 import re
+import datetime
+import time
 from csv import reader
 
 # load up all four indicies/databases
@@ -32,7 +34,7 @@ class Query():
         self.pterms = []
         self.rterms = []
         self.generalterms = []
-
+        
         # These lists represent the maximum and minimum
         # for the range conditions 
         # The absence of an upper or lower bound
@@ -102,25 +104,76 @@ def processQuery(query):
     print("general terms: ", query.generalterms) # search product title, review summary and review text for term  
     print("result: ", generaltermsResults)
 
-    print("rscore bounds: ",query.rscoreBounds)
-    print("rdate bounds: ",query.rdateBounds)
-    print("pprice bounds: ",query.ppriceBounds)
 
     allTermsResults = [ptermsResults, rtermsResults, generaltermsResults]
 
     # query results are 'AND'ed together 
+    processRScoreTermsResults = []
+    if query.rscoreBounds[0] or query.rscoreBounds[1]:
+        processRScoreTermsResults = processRScoreTerms(scoresDB.cursor(), query.rscoreBounds[0],query.rscoreBounds[1])
 
-    resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions(), [])
+    print("rscore bounds: ",query.rscoreBounds)
+    print("results: ",processRScoreTermsResults)
+    print("rdate bounds: ",query.rdateBounds)
+    print("pprice bounds: ",query.ppriceBounds)
+
+
+
+    resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions() + [processRScoreTermsResults], [])
     #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
           
     for term in allTermsResults:
         if len(term[0]) > 0:
             # http://stackoverflow.com/questions/642763/python-intersection-of-two-lists
             resultIDs = list(set(term[0]).intersection(resultIDs))
-    
+
+
+    allBounds = [["rdate", query.rdateBounds], ["pprice", query.ppriceBounds]]
+    for [condition, bounds] in allBounds:
+        if bounds[0] is not None or bounds[1] is not None:
+            resultIDs = processConditionBounds(resultIDs, condition, bounds)
+
     displayResults(resultIDs)
     return resultIDs
 
+def dateToTimeStamp(dateString):
+    # input 2007/06/20
+    # %Y/%m/%d
+    # http://stackoverflow.com/questions/9637838/convert-string-date-to-timestamp-in-python
+    if dateString != None:
+        return int(datetime.datetime.strptime("2007/06/20", "%Y/%m/%d").timestamp())
+    else:
+        return None
+def processConditionBounds(resultIDs, condition, bounds):
+    [minValue, maxValue] = bounds;
+    newResultIDs = []
+    # uses reviewsDB
+    index = 0
+    if "price" in condition:
+        index = 2 # corresponding to pprice
+    elif "rdate" in condition:
+        index = 7 # corresponding to time
+        minValue = dateToTimeStamp(minValue)
+        maxValue = dateToTimeStamp(maxValue)
+    elif "rscore" in condition:
+        index = 6 # corresponding to score
+        
+    for resultID in resultIDs: # loop over all matches/review ids
+        data = getAllMatchingKeys(resultID, reviewsDB)
+        for datum in data: 
+            # loop over all results, displaying them one at a time
+            datum = datum.decode()
+            datumList = [d for d in reader([datum])][0]
+
+            # both max and min present
+            if (maxValue and minValue and float(minValue) < float(datumList[index]) < float(maxValue)):
+                newResultIDs.append(resultID)
+            elif (maxValue and not minValue and float(datumList[index]) < float(maxValue)):
+                newResultIDs.append(resultID)
+            elif (not maxValue and minValue and float(minValue) < float(datumList[index])):
+                newResultIDs.append(resultID)                
+    
+    return newResultIDs
 def wildCardSearches(dbCursor, stringUntilWildCard):
     masterKey = stringUntilWildCard
 
@@ -136,9 +189,36 @@ def wildCardSearches(dbCursor, stringUntilWildCard):
             returnValue = dbCursor.next()
             if returnValue != None and masterKey in returnValue[0]:
                 (key,value) = returnValue
+                results.append(value)
             else:
                 break;
     return results
+
+def processRScoreTerms(dbCursor, minValue, maxValue):
+    if not maxValue:
+        maxValue = '1000'
+    if not minValue:
+        minValue = '-1';
+    if (type(maxValue) != bytes):
+        maxValue = bytes(maxValue, encoding="utf-8")
+    if (type(minValue) != bytes):
+        minValue = bytes(str(float(minValue) + 1), encoding="utf-8")
+
+    results = []
+    returnValue = dbCursor.set_range(minValue)
+    if returnValue != None:
+        (key,value) = returnValue
+        if float(minValue) - 1 < float(returnValue[0]) < float(maxValue):
+            results = [value]
+        while (key != None and value != None):
+            returnValue = dbCursor.next()
+            if returnValue != None and float(minValue) - 1 < float(returnValue[0]) < float(maxValue):
+                (key,value) = returnValue
+                results.append(value)
+            elif returnValue == None:
+                break;
+    return results
+
             
 def displayResults(resultIDs):
     # for every id
@@ -192,6 +272,8 @@ def processPterms(pterms):
         #resultIDs.append(getAllMatchingKeys(pterm, ptermsDB))
         resultIDs = sum([resultIDs] + [getAllMatchingKeys(pterm, ptermsDB)], [])
     return resultIDs
+
+    
 
 def processRterms(rterms):
     # uses rtermsDB
