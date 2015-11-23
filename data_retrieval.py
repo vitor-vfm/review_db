@@ -89,24 +89,34 @@ def processQuery(query):
     """
     # TODO: Get data from db according to query object
 
+    ptermsResults = [processPterms(query.pterms)]
+    rtermsResults = [processRterms(query.rterms)]
+    generaltermsResults = [processGeneralTerms(query.generalterms)]
+
     print("pterms: ",query.pterms) # product terms
-    print("result: ",processPterms(query.pterms))
+    print("result: ",ptermsResults)
 
     print("rterms: ",query.rterms) # rating ex. great 
-    print("result: ",processRterms(query.rterms))
+    print("result: ",rtermsResults)
     
     print("general terms: ", query.generalterms) # search product title, review summary and review text for term  
-    print("result: ", processGeneralTerms(query.generalterms))
+    print("result: ", generaltermsResults)
 
     print("rscore bounds: ",query.rscoreBounds)
     print("rdate bounds: ",query.rdateBounds)
     print("pprice bounds: ",query.ppriceBounds)
 
+    allTermsResults = [ptermsResults, rtermsResults, generaltermsResults]
+
     # query results are 'AND'ed together 
 
-    resultIDs = sum(processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions(), [])
+    resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions(), [])
     #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
-    
+          
+    for term in allTermsResults:
+        if len(term[0]) > 0:
+            # http://stackoverflow.com/questions/642763/python-intersection-of-two-lists
+            resultIDs = list(set(term[0]).intersection(resultIDs))
     
     displayResults(resultIDs)
     return resultIDs
@@ -179,7 +189,8 @@ def processPterms(pterms):
     resultIDs = []
     for pterm in pterms:
         # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
-        resultIDs.append(getAllMatchingKeys(pterm, ptermsDB))
+        #resultIDs.append(getAllMatchingKeys(pterm, ptermsDB))
+        resultIDs = sum([resultIDs] + [getAllMatchingKeys(pterm, ptermsDB)], [])
     return resultIDs
 
 def processRterms(rterms):
@@ -187,7 +198,8 @@ def processRterms(rterms):
     resultIDs = []
     for rterm in rterms:
         # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
-        resultIDs.append(getAllMatchingKeys(rterm, rtermsDB))
+        #resultIDs.append(getAllMatchingKeys(rterm, rtermsDB))
+        resultIDs = sum([resultIDs] + [getAllMatchingKeys(rterm, rtermsDB)], [])
     return resultIDs
 
 def processGeneralTerms(generalterms):
@@ -198,9 +210,9 @@ def processGeneralTerms(generalterms):
             wildCardResultsRterms = wildCardSearches(rtermsDB.cursor(),generalterm[:-1])
             wildCardResultsPterms = wildCardSearches(ptermsDB.cursor(),generalterm[:-1])
             if len(wildCardResultsRterms) > 0:
-                resultIDs.append(wildCardResultsRterms)
+                resultIDs = sum( [resultIDs] + [wildCardResultsRterms], [])
             if len(wildCardResultsPterms) > 0:
-                resultIDs.append(wildCardResultsPterms)
+                resultIDs = sum( [resultIDs] + [wildCardResultsPterms], [])
                 
     return resultIDs
 
