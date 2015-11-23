@@ -279,7 +279,7 @@ def processRterms(rterms):
 
 def processGeneralTerms(generalterms):
     # uses ptermsDB, rtermsDB
-    resultIDs = sum(processRterms(generalterms) + processPterms(generalterms), [])    
+    resultIDs = sum([processRterms(generalterms)] + [processPterms(generalterms)], [])    
     for generalterm in generalterms:
         if "%" in generalterm:
             wildCardResultsRterms = wildCardSearches(rtermsDB.cursor(),generalterm[:-1])
