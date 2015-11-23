@@ -112,13 +112,6 @@ def processQuery(query):
     if query.rscoreBounds[0] or query.rscoreBounds[1]:
         processRScoreTermsResults = processRScoreTerms(scoresDB.cursor(), query.rscoreBounds[0],query.rscoreBounds[1])
 
-    print("rscore bounds: ",query.rscoreBounds)
-    print("results: ",processRScoreTermsResults)
-    print("rdate bounds: ",query.rdateBounds)
-    print("pprice bounds: ",query.ppriceBounds)
-
-
-
     resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions() + [processRScoreTermsResults], [])
     #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
           
@@ -134,7 +127,7 @@ def processQuery(query):
             resultIDs = processConditionBounds(resultIDs, condition, bounds)
 
     displayResults(resultIDs)
-    return resultIDs
+    return sorted([int(i) for i in resultIDs])
 
 def dateToTimeStamp(dateString):
     # input 2007/06/20
