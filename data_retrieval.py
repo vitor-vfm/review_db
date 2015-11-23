@@ -2,6 +2,7 @@
 
 from bsddb3 import db as berkeleyDB
 import re
+from csv import reader
 
 # load up all four indicies/databases
 reviewsDB = berkeleyDB.DB()
@@ -94,8 +95,8 @@ def processQuery(query):
     print("rterms: ",query.rterms) # rating ex. great 
     print("result: ",processRterms(query.rterms))
     
-    print("general terms: ",query.generalterms) # search product title, review summary and review text for term  
-    print("result: ",processGeneralTerms(query.generalterms))
+    print("general terms: ", query.generalterms) # search product title, review summary and review text for term  
+    print("result: ", processGeneralTerms(query.generalterms))
 
     print("rscore bounds: ",query.rscoreBounds)
     print("rdate bounds: ",query.rdateBounds)
@@ -103,28 +104,82 @@ def processQuery(query):
 
     # query results are 'AND'ed together 
 
-    resultIDs = processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions()
+    resultIDs = sum(processPterms(query.pterms) + processRterms(query.rterms) + processGeneralTerms(query.generalterms) + processConditions(), [])
+    #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
+    
+    
+    displayResults(resultIDs)
     return resultIDs
+
+def wildCardSearches(dbCursor, stringUntilWildCard):
+    masterKey = stringUntilWildCard
+
+    if (type(masterKey) != bytes):
+        masterKey = bytes(masterKey, encoding="utf-8")
+
+    results = []
+    returnValue = dbCursor.set_range(masterKey)
+    if returnValue != None and masterKey in returnValue[0]:
+        (key,value) = returnValue
+        results = [value]
+        while (masterKey in key and key != None and value != None):
+            returnValue = dbCursor.next()
+            if returnValue != None and masterKey in returnValue[0]:
+                (key,value) = returnValue
+            else:
+                break;
+    return results
+            
+def displayResults(resultIDs):
+    # for every id
+    # display:
+    # id, title, price, userid, profile name, helpfullness, review score, review timestamp, summary, and full text of review.
+
+    # uses reviewsDB
+    for resultID in resultIDs: # loop over all matches/review ids
+        data = getAllMatchingKeys(resultID, reviewsDB)
+        for datum in data: 
+            # loop over all results, displaying them one at a time
+            datum = datum.decode()
+            datumList = [d for d in reader([datum])][0]
+            print("product/productId: " + datumList[0])
+            # print("product/title: " + datumList[1])
+            # print("product/price: " + datumList[2])
+            # print("review/userId: " + datumList[3])
+            # print("review/profileName: " + datumList[4])
+            # print("review/helpfulness: " + datumList[5])
+            # print("review/score: " + datumList[6])
+            # print("review/time: " + datumList[7])
+            # print("review/summary: " + datumList[8])
+            # print("review/text: " + datumList[9])
+    
 
 def getAllMatchingKeys(masterKey, db):
     # http://stackoverflow.com/questions/12348346/berkeley-db-partial-match
     db_cursor = db.cursor()
-    (key,value) = db_cursor.get(bytes(masterKey, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
-    
-    resultsIDs = [value]
-    while(key == bytes(masterKey, encoding="utf-8")):
-        (key,value) = db_cursor.get(bytes(masterKey, encoding="utf-8"), berkeleyDB.DB_NEXT)
-        resultsIDs += [value]
+    if (type(masterKey) != bytes):
+        masterKey = bytes(masterKey, encoding="utf-8")
 
-    return resultsIDs
+    (key,value) = db_cursor.get(masterKey, berkeleyDB.DB_SET_RANGE)
+    results = []
+    if (key == masterKey):
+        results = [value]            
+        while(key == masterKey and key != None and value != None):
+            returnValue = db_cursor.get(masterKey, berkeleyDB.DB_NEXT)
+            if (returnValue != None):
+                (key,value) = returnValue
+                if (key == masterKey):
+                    results.append(value)
+            else:
+                break;
+    return results
     
 def processPterms(pterms):
     # uses ptermsDB
     resultIDs = []
     for pterm in pterms:
         # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
-        # resultIDs += [ptermsDB.get(bytes(pterm, encoding="utf-8"))] # already in encoded in bytes
-        resultIDs += getAllMatchingKeys(pterm, ptermsDB)
+        resultIDs.append(getAllMatchingKeys(pterm, ptermsDB))
     return resultIDs
 
 def processRterms(rterms):
@@ -132,14 +187,21 @@ def processRterms(rterms):
     resultIDs = []
     for rterm in rterms:
         # http://stackoverflow.com/questions/19511440/add-b-prefix-to-python-variable
-        # resultIDs += [rtermsDB.get(bytes(rterm, encoding="utf-8"))] # already in encoded in bytes
-        resultIDs += getAllMatchingKeys(rterm, rtermsDB)
+        resultIDs.append(getAllMatchingKeys(rterm, rtermsDB))
     return resultIDs
 
 def processGeneralTerms(generalterms):
     # uses ptermsDB, rtermsDB
-    resultIDs = processRterms(generalterms) + processPterms(generalterms)
-    
+    resultIDs = sum(processRterms(generalterms) + processPterms(generalterms), [])    
+    for generalterm in generalterms:
+        if "%" in generalterm:
+            wildCardResultsRterms = wildCardSearches(rtermsDB.cursor(),generalterm[:-1])
+            wildCardResultsPterms = wildCardSearches(ptermsDB.cursor(),generalterm[:-1])
+            if len(wildCardResultsRterms) > 0:
+                resultIDs.append(wildCardResultsRterms)
+            if len(wildCardResultsPterms) > 0:
+                resultIDs.append(wildCardResultsPterms)
+                
     return resultIDs
 
 def rangeSearch(term, maximum, minimum):
