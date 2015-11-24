@@ -96,7 +96,6 @@ def processQuery(query):
     Get the results in the database specified 
     by the query object
     """
-    # TODO: Get data from db according to query object
         
     if query.generalterms:
         query.generaltermsSet = 1
@@ -112,33 +111,18 @@ def processQuery(query):
     rtermsResults = [processRterms(query.rterms)]
     generaltermsResults = [processGeneralTerms(query.generalterms)]
 
-    print("pterms: ",query.pterms) # product terms
-    print("result: ",ptermsResults)
-
-    print("rterms: ",query.rterms) # rating ex. great 
-    print("result: ",rtermsResults)
-    
-    print("general terms: ", query.generalterms) # search product title, review summary and review text for term  
-    print("result: ", generaltermsResults)
-
-    print("rscore: ", query.rscoreBounds)
-    print("rdate: ", query.rdateBounds)
-    print("pprice: ", query.ppriceBounds)
-
     # query results are 'AND'ed together 
     processRScoreTermsResults = []
     if query.rscoreBounds[0] or query.rscoreBounds[1]:
         processRScoreTermsResults = processRScoreTerms(scoresDB.cursor(), query.rscoreBounds[0],query.rscoreBounds[1])
 
-    resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions() + [processRScoreTermsResults], [])
-    #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
+    resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + [processRScoreTermsResults], [])
           
     allTermsResults = [(ptermsResults, query.ptermsSet), (rtermsResults, query.rtermsSet), (generaltermsResults, query.generaltermsSet), ([processRScoreTermsResults], query.rscoreBoundsSet)]
     for term, setCondition in allTermsResults:
         if setCondition:
             # http://stackoverflow.com/questions/642763/python-intersection-of-two-lists
             resultIDs = list(set(term[0]).intersection(resultIDs))
-
 
     allBounds = [["rdate", query.rdateBounds], ["pprice", query.ppriceBounds]]
     for [condition, bounds] in allBounds:
@@ -247,15 +231,16 @@ def displayResults(resultIDs):
             datum = datum.decode()
             datumList = [d for d in reader([datum])][0]
             print("product/productId: " + datumList[0])
-            # print("product/title: " + datumList[1])
-            # print("product/price: " + datumList[2])
-            # print("review/userId: " + datumList[3])
-            # print("review/profileName: " + datumList[4])
-            # print("review/helpfulness: " + datumList[5])
-            # print("review/score: " + datumList[6])
-            # print("review/time: " + datumList[7])
-            # print("review/summary: " + datumList[8])
-            # print("review/text: " + datumList[9])
+            print("product/title: " + datumList[1])
+            print("product/price: " + datumList[2])
+            print("review/userId: " + datumList[3])
+            print("review/profileName: " + datumList[4].replace("&quot;", '"'))
+            print("review/helpfulness: " + datumList[5])
+            print("review/score: " + datumList[6])
+            print("review/time: " + datumList[7])
+            print("review/summary: " + datumList[8].replace("&quot;", '"'))
+            print("review/text: " + datumList[9].replace("&quot;", '"'))
+            print()
     
 
 def getAllMatchingKeys(masterKey, db):
@@ -312,63 +297,6 @@ def processGeneralTerms(generalterms):
                 
     return resultIDs
 
-def rangeSearch(term, maximum, minimum):
-    # TODO: either use this function or delete it
-    """
-    Perform range searches
-    """
-    if term == 'rscore':
-        db = scoresDB
-    db_cursor = db.cursor()
-
-    if not maximum:
-        (maxKey,_) = db_cursor.get(berkeleyDB.DB_LAST)
-    else:
-        (maxKey,_) = db_cursor.get(bytes(maximum, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
-
-    if not minimum:
-        (minKey,value) = db_cursor.get(berkeleyDB.DB_FIRST)
-    else:
-        (minKey,value) = db_cursor.get(bytes(minimum, encoding="utf-8"), berkeleyDB.DB_SET_RANGE)
-
-    result = []
-    key = minKey
-    while (key <= maxKey):
-        result.append(value)
-        (key,value) = db_cursor.get(berkeleyDB.DB_NEXT)
-    return result
-
-
-def processConditions():
-    # TODO: either use this function or delete its contents
-    """
-    Process range conditions
-    """
-    return []
-    # maxes = {}
-    # mins = {}
-    # for condTuple in conditions:
-    #     if condTuple[1] == "<":
-    #         maxes[condTuple[0]] = condTuple[2]
-    #     elif condTuple[1] == ">":
-    #         mins[condTuple[0]] = condTuple[2]
-    # # get all terms removing duplicates
-    # terms = set(list(maxes.keys()) + list(mins.keys()))
-
-    # results = []
-    # for term in terms:
-    #     if term in maxes:
-    #         ma = maxes[term]
-    #     else:
-    #         ma = None
-    #     if term in mins:
-    #         mi = mins[term]
-    #     else:
-    #         mi = None
-    #     results += rangeSearch(term, ma, mi)
-    # return results
-
-
 def interface():
     """
     Basic UI to ask for queries
@@ -378,8 +306,9 @@ def interface():
         if q == 'q':
             break
         res = processQuery(Query(q))
-        print(res)
-        print("size: ", len(res))
+        print()
+        print(len(res), "review(s) were found that matched.")
+        print("They were:", res)
 
     # close dbs before exiting
     reviewsDB.close()            
