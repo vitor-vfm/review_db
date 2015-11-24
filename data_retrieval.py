@@ -149,11 +149,10 @@ def processQuery(query):
     return sorted([int(i) for i in resultIDs])
 
 def dateToTimeStamp(dateString):
-    # input 2007/06/20
-    # %Y/%m/%d
+    # Assumes date in the right format: %Y/%m/%d
     # http://stackoverflow.com/questions/9637838/convert-string-date-to-timestamp-in-python
     if dateString != None:
-        return int(datetime.datetime.strptime("2007/06/20", "%Y/%m/%d").timestamp())
+        return int(datetime.datetime.strptime(dateString, "%Y/%m/%d").timestamp())
     else:
         return None
 
