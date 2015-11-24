@@ -279,7 +279,7 @@ def processRterms(rterms):
 
 def processGeneralTerms(generalterms):
     # uses ptermsDB, rtermsDB
-    resultIDs = sum(processRterms(generalterms) + processPterms(generalterms), [])    
+    resultIDs = sum([processRterms(generalterms)] + [processPterms(generalterms)], [])    
     for generalterm in generalterms:
         if "%" in generalterm:
             wildCardResultsRterms = wildCardSearches(rtermsDB.cursor(),generalterm[:-1])
@@ -356,7 +356,9 @@ def interface():
         q = input("Please input your query. Input 'q' to exit: ").lower()
         if q == 'q':
             break
-        print(processQuery(Query(q)))
+        res = processQuery(Query(q))
+        print(res)
+        print("size: ", len(res))
 
     # close dbs before exiting
     reviewsDB.close()            
