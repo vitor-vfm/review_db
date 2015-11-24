@@ -34,6 +34,10 @@ class Query():
         self.pterms = []
         self.rterms = []
         self.generalterms = []
+
+        self.ptermsSet = 0
+        self.rtermsSet = 0
+        self.generaltermsSet = 0
         
         # These lists represent the maximum and minimum
         # for the range conditions 
@@ -42,6 +46,8 @@ class Query():
         self.rscoreBounds = [None, None]
         self.rdateBounds = [None, None]
         self.ppriceBounds = [None, None]
+
+        self.rscoreBoundsSet = 0
 
         # find pterm specifications
         m = re.findall(r'p:([a-z]+)', q)
@@ -63,6 +69,7 @@ class Query():
         m = re.findall(r'[a-z%]+', q)
         if m:
             self.generalterms += m
+
 
     def processBounds(self, conditions):
         """
@@ -90,6 +97,16 @@ def processQuery(query):
     by the query object
     """
     # TODO: Get data from db according to query object
+        
+    if query.generalterms:
+        query.generaltermsSet = 1
+    if query.pterms:
+        query.ptermsSet = 1
+    if query.rterms:
+        query.rtermsSet = 1
+    if query.rscoreBounds[0] or query.rscoreBounds[1]:
+        query.rscoreBoundsSet = 1            
+
 
     ptermsResults = [processPterms(query.pterms)]
     rtermsResults = [processRterms(query.rterms)]
@@ -114,9 +131,9 @@ def processQuery(query):
     resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions() + [processRScoreTermsResults], [])
     #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
           
-    allTermsResults = [ptermsResults, rtermsResults, generaltermsResults, [processRScoreTermsResults]]
-    for term in allTermsResults:
-        if len(term[0]) > 0:
+    allTermsResults = [(ptermsResults, query.ptermsSet), (rtermsResults, query.rtermsSet), (generaltermsResults, query.generaltermsSet), ([processRScoreTermsResults], query.rscoreBoundsSet)]
+    for term, setCondition in allTermsResults:
+        if setCondition:
             # http://stackoverflow.com/questions/642763/python-intersection-of-two-lists
             resultIDs = list(set(term[0]).intersection(resultIDs))
 
