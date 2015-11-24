@@ -121,7 +121,9 @@ def processQuery(query):
     print("general terms: ", query.generalterms) # search product title, review summary and review text for term  
     print("result: ", generaltermsResults)
 
-
+    print("rscore: ", query.rscoreBounds)
+    print("rdate: ", query.rdateBounds)
+    print("pprice: ", query.ppriceBounds)
 
     # query results are 'AND'ed together 
     processRScoreTermsResults = []
@@ -154,6 +156,7 @@ def dateToTimeStamp(dateString):
         return int(datetime.datetime.strptime("2007/06/20", "%Y/%m/%d").timestamp())
     else:
         return None
+
 def processConditionBounds(resultIDs, condition, bounds):
     [minValue, maxValue] = bounds;
     newResultIDs = []
@@ -185,6 +188,7 @@ def processConditionBounds(resultIDs, condition, bounds):
                 newResultIDs.append(resultID)                
     
     return newResultIDs
+
 def wildCardSearches(dbCursor, stringUntilWildCard):
     masterKey = stringUntilWildCard
 
