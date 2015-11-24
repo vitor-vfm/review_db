@@ -105,7 +105,6 @@ def processQuery(query):
     print("result: ", generaltermsResults)
 
 
-    allTermsResults = [ptermsResults, rtermsResults, generaltermsResults]
 
     # query results are 'AND'ed together 
     processRScoreTermsResults = []
@@ -115,6 +114,7 @@ def processQuery(query):
     resultIDs = sum(ptermsResults + rtermsResults + generaltermsResults + processConditions() + [processRScoreTermsResults], [])
     #    resultIDs = sum(processPterms(query.pterms),processRterms(query.rterms), processGeneralTerms(query.generalterms), processConditions(), [])
           
+    allTermsResults = [ptermsResults, rtermsResults, generaltermsResults, [processRScoreTermsResults]]
     for term in allTermsResults:
         if len(term[0]) > 0:
             # http://stackoverflow.com/questions/642763/python-intersection-of-two-lists
@@ -157,7 +157,8 @@ def processConditionBounds(resultIDs, condition, bounds):
             # loop over all results, displaying them one at a time
             datum = datum.decode()
             datumList = [d for d in reader([datum])][0]
-
+            if "unknown" in datumList[index]:
+                continue
             # both max and min present
             if (maxValue and minValue and float(minValue) < float(datumList[index]) < float(maxValue)):
                 newResultIDs.append(resultID)
